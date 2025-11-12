@@ -81,14 +81,37 @@ export const analyticsSnapshots = pgTable("analytics_snapshots", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Teams - workspace/organization entity
+export const teams = pgTable("teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Team members
 export const teamMembers = pgTable("team_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  teamId: varchar("team_id").notNull(),
+  teamId: varchar("team_id").notNull().references(() => teams.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   role: text("role").notNull(), // owner, admin, editor, viewer
   permissions: jsonb("permissions").$type<string[]>(),
   invitedBy: varchar("invited_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User preferences/settings
+export const userPreferences = pgTable("user_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  theme: text("theme").default('dark'), // light, dark, system
+  timezone: text("timezone").default('UTC'),
+  emailNotifications: boolean("email_notifications").default(true),
+  pushNotifications: boolean("push_notifications").default(true),
+  weeklyReports: boolean("weekly_reports").default(true),
+  notificationSettings: jsonb("notification_settings").$type<Record<string, boolean>>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -138,17 +161,47 @@ export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
 });
 
-export const insertSocialAccountSchema = createInsertSchema(socialAccounts);
+export const insertSocialAccountSchema = createInsertSchema(socialAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertPostSchema = createInsertSchema(posts);
 export const insertAITemplateSchema = createInsertSchema(aiTemplates);
 
+export const insertTeamSchema = createInsertSchema(teams).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertSocialAccount = z.infer<typeof insertSocialAccountSchema>;
+export type InsertTeam = z.infer<typeof insertTeamSchema>;
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
+export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
+
 export type User = typeof users.$inferSelect;
 export type SocialAccount = typeof socialAccounts.$inferSelect;
 export type Post = typeof posts.$inferSelect;
 export type AITemplate = typeof aiTemplates.$inferSelect;
 export type AnalyticsSnapshot = typeof analyticsSnapshots.$inferSelect;
+export type Team = typeof teams.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
+export type UserPreferences = typeof userPreferences.$inferSelect;
 export type Competitor = typeof competitors.$inferSelect;
 export type AutomationRule = typeof automationRules.$inferSelect;
 export type ContentCalendar = typeof contentCalendar.$inferSelect;

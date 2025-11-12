@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Post, type AITemplate, users, posts, aiTemplates } from "@shared/schema";
+import { type User, type InsertUser, type Post, type AITemplate, type TeamMember, type InsertTeamMember, users, posts, aiTemplates, teamMembers } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
 import { drizzle } from "drizzle-orm/neon-serverless";
@@ -60,6 +60,13 @@ export interface IStorage {
   updateTemplate(id: string, updates: Partial<InsertAITemplate>): Promise<AITemplate | undefined>;
   deleteTemplate(id: string): Promise<boolean>;
   incrementTemplateUsage(id: string): Promise<void>;
+
+  // Team methods
+  getTeamMembers(teamId: string): Promise<TeamMember[]>;
+  getTeamMember(id: string): Promise<TeamMember | undefined>;
+  addTeamMember(member: Omit<InsertTeamMember, 'id'>): Promise<TeamMember>;
+  updateTeamMemberRole(id: string, role: string): Promise<TeamMember | undefined>;
+  removeTeamMember(id: string): Promise<boolean>;
 }
 
 // PostgreSQL Database Storage Implementation
