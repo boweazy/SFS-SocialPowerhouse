@@ -122,6 +122,312 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ user: userWithoutPassword });
   });
 
+  // Team Management API Routes
+  // Get current user's team
+  app.get("/api/team", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const team = await storage.getUserTeam(user.id);
+      
+      if (!team) {
+        return res.status(404).json({
+          error: "Team not found",
+          message: "No team found for this user"
+        });
+      }
+
+      res.json({ team });
+    } catch (error: any) {
+      console.error("Error fetching team:", error);
+      res.status(500).json({
+        error: "Failed to fetch team",
+        message: error.message || "An error occurred while fetching team"
+      });
+    }
+  });
+
+  // Get team members
+  app.get("/api/team/members", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const team = await storage.getUserTeam(user.id);
+      
+      if (!team) {
+        return res.status(404).json({
+          error: "Team not found",
+          message: "No team found for this user"
+        });
+      }
+
+      const members = await storage.getTeamMembers(team.id);
+      
+      // Hydrate member data with user info
+      const membersWithUsers = await Promise.all(
+        members.map(async (member) => {
+          const memberUser = await storage.getUser(member.userId);
+          return {
+            ...member,
+            user: memberUser ? {
+              id: memberUser.id,
+              username: memberUser.username,
+              email: memberUser.email,
+              name: memberUser.name,
+              avatar: memberUser.avatar
+            } : null
+          };
+        })
+      );
+
+      res.json({ members: membersWithUsers });
+    } catch (error: any) {
+      console.error("Error fetching team members:", error);
+      res.status(500).json({
+        error: "Failed to fetch team members",
+        message: error.message || "An error occurred while fetching team members"
+      });
+    }
+  });
+
+  // Add team member (invite)
+  app.post("/api/team/members", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const { email, role } = req.body;
+
+      if (!email || !role) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          message: "Email and role are required"
+        });
+      }
+
+      const validRoles = ['admin', 'editor', 'viewer'];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({
+          error: "Invalid role",
+          message: "Role must be one of: admin, editor, viewer"
+        });
+      }
+
+      const team = await storage.getUserTeam(user.id);
+      if (!team) {
+        return res.status(404).json({
+          error: "Team not found",
+          message: "No team found for this user"
+        });
+      }
+
+      // Verify user is owner or admin
+      const currentMembers = await storage.getTeamMembers(team.id);
+      const currentMember = currentMembers.find(m => m.userId === user.id);
+      if (!currentMember || (currentMember.role !== 'owner' && currentMember.role !== 'admin')) {
+        return res.status(403).json({
+          error: "Access denied",
+          message: "Only team owners and admins can invite members"
+        });
+      }
+
+      // Find user to invite
+      const invitedUser = await storage.getUserByEmail(email);
+      if (!invitedUser) {
+        return res.status(404).json({
+          error: "User not found",
+          message: "No user found with this email address"
+        });
+      }
+
+      // Check if already a member
+      const existingMember = currentMembers.find(m => m.userId === invitedUser.id);
+      if (existingMember) {
+        return res.status(409).json({
+          error: "Already a member",
+          message: "This user is already a member of the team"
+        });
+      }
+
+      // Add member
+      const newMember = await storage.addTeamMember({
+        teamId: team.id,
+        userId: invitedUser.id,
+        role,
+        invitedBy: user.id
+      });
+
+      // Return member with user info
+      const memberWithUser = {
+        ...newMember,
+        user: {
+          id: invitedUser.id,
+          username: invitedUser.username,
+          email: invitedUser.email,
+          name: invitedUser.name,
+          avatar: invitedUser.avatar
+        }
+      };
+
+      res.status(201).json({
+        message: "Team member added successfully",
+        member: memberWithUser
+      });
+    } catch (error: any) {
+      console.error("Error adding team member:", error);
+      res.status(500).json({
+        error: "Failed to add team member",
+        message: error.message || "An error occurred while adding team member"
+      });
+    }
+  });
+
+  // Update team member role
+  app.patch("/api/team/members/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const { id } = req.params;
+      const { role } = req.body;
+
+      if (!role) {
+        return res.status(400).json({
+          error: "Missing required field",
+          message: "Role is required"
+        });
+      }
+
+      const validRoles = ['admin', 'editor', 'viewer'];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({
+          error: "Invalid role",
+          message: "Role must be one of: admin, editor, viewer"
+        });
+      }
+
+      const team = await storage.getUserTeam(user.id);
+      if (!team) {
+        return res.status(404).json({
+          error: "Team not found",
+          message: "No team found for this user"
+        });
+      }
+
+      // Verify user is owner or admin
+      const currentMembers = await storage.getTeamMembers(team.id);
+      const currentMember = currentMembers.find(m => m.userId === user.id);
+      if (!currentMember || (currentMember.role !== 'owner' && currentMember.role !== 'admin')) {
+        return res.status(403).json({
+          error: "Access denied",
+          message: "Only team owners and admins can update member roles"
+        });
+      }
+
+      // Get member to update
+      const memberToUpdate = await storage.getTeamMember(id);
+      if (!memberToUpdate || memberToUpdate.teamId !== team.id) {
+        return res.status(404).json({
+          error: "Member not found",
+          message: "Team member not found"
+        });
+      }
+
+      // Cannot change owner role
+      if (memberToUpdate.role === 'owner') {
+        return res.status(403).json({
+          error: "Cannot modify owner",
+          message: "Cannot change the role of the team owner"
+        });
+      }
+
+      const updatedMember = await storage.updateTeamMemberRole(id, role);
+      if (!updatedMember) {
+        return res.status(404).json({
+          error: "Update failed",
+          message: "Failed to update team member"
+        });
+      }
+
+      // Hydrate with user info
+      const memberUser = await storage.getUser(updatedMember.userId);
+      const memberWithUser = {
+        ...updatedMember,
+        user: memberUser ? {
+          id: memberUser.id,
+          username: memberUser.username,
+          email: memberUser.email,
+          name: memberUser.name,
+          avatar: memberUser.avatar
+        } : null
+      };
+
+      res.json({
+        message: "Team member role updated successfully",
+        member: memberWithUser
+      });
+    } catch (error: any) {
+      console.error("Error updating team member:", error);
+      res.status(500).json({
+        error: "Failed to update team member",
+        message: error.message || "An error occurred while updating team member"
+      });
+    }
+  });
+
+  // Remove team member
+  app.delete("/api/team/members/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const { id } = req.params;
+
+      const team = await storage.getUserTeam(user.id);
+      if (!team) {
+        return res.status(404).json({
+          error: "Team not found",
+          message: "No team found for this user"
+        });
+      }
+
+      // Verify user is owner or admin
+      const currentMembers = await storage.getTeamMembers(team.id);
+      const currentMember = currentMembers.find(m => m.userId === user.id);
+      if (!currentMember || (currentMember.role !== 'owner' && currentMember.role !== 'admin')) {
+        return res.status(403).json({
+          error: "Access denied",
+          message: "Only team owners and admins can remove members"
+        });
+      }
+
+      // Get member to remove
+      const memberToRemove = await storage.getTeamMember(id);
+      if (!memberToRemove || memberToRemove.teamId !== team.id) {
+        return res.status(404).json({
+          error: "Member not found",
+          message: "Team member not found"
+        });
+      }
+
+      // Cannot remove owner
+      if (memberToRemove.role === 'owner') {
+        return res.status(403).json({
+          error: "Cannot remove owner",
+          message: "Cannot remove the team owner"
+        });
+      }
+
+      const removed = await storage.removeTeamMember(id);
+      if (!removed) {
+        return res.status(404).json({
+          error: "Removal failed",
+          message: "Failed to remove team member"
+        });
+      }
+
+      res.json({ message: "Team member removed successfully" });
+    } catch (error: any) {
+      console.error("Error removing team member:", error);
+      res.status(500).json({
+        error: "Failed to remove team member",
+        message: error.message || "An error occurred while removing team member"
+      });
+    }
+  });
+
   // Posts API Routes
   // Get all posts for current user with optional filters
   app.get("/api/posts", requireAuth, async (req, res) => {
@@ -704,6 +1010,314 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         error: "Failed to fetch analytics",
         message: error.message || "An error occurred while fetching analytics"
+      });
+    }
+  });
+
+  // Social Accounts API Routes
+  // Get all social accounts for current user
+  app.get("/api/social-accounts", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const accounts = await storage.getSocialAccounts(user.id);
+      res.json({ accounts });
+    } catch (error: any) {
+      console.error("Error fetching social accounts:", error);
+      res.status(500).json({
+        error: "Failed to fetch social accounts",
+        message: error.message || "An error occurred while fetching social accounts"
+      });
+    }
+  });
+
+  // Get single social account
+  app.get("/api/social-accounts/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const { id } = req.params;
+
+      const account = await storage.getSocialAccount(id);
+      if (!account) {
+        return res.status(404).json({
+          error: "Account not found",
+          message: "The requested social account does not exist"
+        });
+      }
+
+      // Verify account belongs to user
+      if (account.userId !== user.id) {
+        return res.status(403).json({
+          error: "Access denied",
+          message: "You do not have permission to access this account"
+        });
+      }
+
+      res.json({ account });
+    } catch (error: any) {
+      console.error("Error fetching social account:", error);
+      res.status(500).json({
+        error: "Failed to fetch social account",
+        message: error.message || "An error occurred while fetching the account"
+      });
+    }
+  });
+
+  // Create (connect) new social account
+  app.post("/api/social-accounts", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const { platform, username, accessToken, refreshToken, expiresAt, profileData } = req.body;
+
+      if (!platform || !username || !accessToken) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          message: "Platform, username, and accessToken are required"
+        });
+      }
+
+      const validPlatforms = ['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'youtube', 'pinterest'];
+      if (!validPlatforms.includes(platform)) {
+        return res.status(400).json({
+          error: "Invalid platform",
+          message: `Platform must be one of: ${validPlatforms.join(', ')}`
+        });
+      }
+
+      // Check if account already exists for this platform
+      const existingAccounts = await storage.getSocialAccounts(user.id);
+      const duplicateAccount = existingAccounts.find(
+        acc => acc.platform === platform && acc.username === username
+      );
+      if (duplicateAccount) {
+        return res.status(409).json({
+          error: "Account already connected",
+          message: "This social account is already connected"
+        });
+      }
+
+      const account = await storage.createSocialAccount({
+        userId: user.id,
+        platform,
+        username,
+        accessToken,
+        refreshToken: refreshToken || null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        profileData: profileData || null,
+        isActive: true
+      });
+
+      res.status(201).json({
+        message: "Social account connected successfully",
+        account
+      });
+    } catch (error: any) {
+      console.error("Error creating social account:", error);
+      res.status(500).json({
+        error: "Failed to connect social account",
+        message: error.message || "An error occurred while connecting the account"
+      });
+    }
+  });
+
+  // Update social account
+  app.patch("/api/social-accounts/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const { id } = req.params;
+      const updates = req.body;
+
+      const account = await storage.getSocialAccount(id);
+      if (!account) {
+        return res.status(404).json({
+          error: "Account not found",
+          message: "The requested social account does not exist"
+        });
+      }
+
+      // Verify account belongs to user
+      if (account.userId !== user.id) {
+        return res.status(403).json({
+          error: "Access denied",
+          message: "You do not have permission to update this account"
+        });
+      }
+
+      // Convert expiresAt if present
+      if (updates.expiresAt) {
+        updates.expiresAt = new Date(updates.expiresAt);
+      }
+
+      const updatedAccount = await storage.updateSocialAccount(id, updates);
+      if (!updatedAccount) {
+        return res.status(404).json({
+          error: "Update failed",
+          message: "Failed to update social account"
+        });
+      }
+
+      res.json({
+        message: "Social account updated successfully",
+        account: updatedAccount
+      });
+    } catch (error: any) {
+      console.error("Error updating social account:", error);
+      res.status(500).json({
+        error: "Failed to update social account",
+        message: error.message || "An error occurred while updating the account"
+      });
+    }
+  });
+
+  // Delete (disconnect) social account
+  app.delete("/api/social-accounts/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const { id } = req.params;
+
+      const account = await storage.getSocialAccount(id);
+      if (!account) {
+        return res.status(404).json({
+          error: "Account not found",
+          message: "The requested social account does not exist"
+        });
+      }
+
+      // Verify account belongs to user
+      if (account.userId !== user.id) {
+        return res.status(403).json({
+          error: "Access denied",
+          message: "You do not have permission to delete this account"
+        });
+      }
+
+      const deleted = await storage.deleteSocialAccount(id);
+      if (!deleted) {
+        return res.status(404).json({
+          error: "Deletion failed",
+          message: "Failed to delete social account"
+        });
+      }
+
+      res.json({ message: "Social account disconnected successfully" });
+    } catch (error: any) {
+      console.error("Error deleting social account:", error);
+      res.status(500).json({
+        error: "Failed to disconnect social account",
+        message: error.message || "An error occurred while disconnecting the account"
+      });
+    }
+  });
+
+  // Settings API Routes
+  // Get user preferences
+  app.get("/api/settings/preferences", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const preferences = await storage.getUserPreferences(user.id);
+      
+      // Return default preferences if none exist
+      if (!preferences) {
+        return res.json({
+          preferences: {
+            userId: user.id,
+            theme: 'dark',
+            timezone: 'UTC',
+            emailNotifications: true,
+            pushNotifications: true,
+            weeklyReports: true,
+            notificationSettings: {}
+          }
+        });
+      }
+
+      res.json({ preferences });
+    } catch (error: any) {
+      console.error("Error fetching preferences:", error);
+      res.status(500).json({
+        error: "Failed to fetch preferences",
+        message: error.message || "An error occurred while fetching preferences"
+      });
+    }
+  });
+
+  // Update user preferences
+  app.put("/api/settings/preferences", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const { theme, timezone, emailNotifications, pushNotifications, weeklyReports, notificationSettings } = req.body;
+
+      const preferences = await storage.upsertUserPreferences({
+        userId: user.id,
+        theme: theme || null,
+        timezone: timezone || null,
+        emailNotifications: emailNotifications !== undefined ? emailNotifications : null,
+        pushNotifications: pushNotifications !== undefined ? pushNotifications : null,
+        weeklyReports: weeklyReports !== undefined ? weeklyReports : null,
+        notificationSettings: notificationSettings || null
+      });
+
+      res.json({
+        message: "Preferences updated successfully",
+        preferences
+      });
+    } catch (error: any) {
+      console.error("Error updating preferences:", error);
+      res.status(500).json({
+        error: "Failed to update preferences",
+        message: error.message || "An error occurred while updating preferences"
+      });
+    }
+  });
+
+  // Update user profile
+  app.put("/api/settings/profile", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const { name, email, avatar } = req.body;
+
+      // Validate email format if provided
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({
+          error: "Invalid email",
+          message: "Please provide a valid email address"
+        });
+      }
+
+      // Check if email is already taken by another user
+      if (email && email !== user.email) {
+        const existingUser = await storage.getUserByEmail(email);
+        if (existingUser && existingUser.id !== user.id) {
+          return res.status(409).json({
+            error: "Email already exists",
+            message: "This email is already in use by another account"
+          });
+        }
+      }
+
+      const updates: { name?: string; email?: string; avatar?: string } = {};
+      if (name !== undefined) updates.name = name;
+      if (email !== undefined) updates.email = email;
+      if (avatar !== undefined) updates.avatar = avatar;
+
+      const updatedUser = await storage.updateProfile(user.id, updates);
+      if (!updatedUser) {
+        return res.status(404).json({
+          error: "Update failed",
+          message: "Failed to update profile"
+        });
+      }
+
+      // Return user without password
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json({
+        message: "Profile updated successfully",
+        user: userWithoutPassword
+      });
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({
+        error: "Failed to update profile",
+        message: error.message || "An error occurred while updating profile"
       });
     }
   });
