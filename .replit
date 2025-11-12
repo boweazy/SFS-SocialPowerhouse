@@ -37,3 +37,12 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "🚀 Commit & Push All Changes"
+author = 36680818
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash sfs-auto-commit.sh"

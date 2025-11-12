@@ -1,0 +1,106 @@
+set -euo pipefail
+
+echo "🔧 Creating SFS Auto-Git Workflow..."
+
+# [1] Create auto-commit script
+cat > ~/sfs-auto-commit.sh << 'EOFSCRIPT'
+#!/bin/bash
+set -euo pipefail
+
+echo "🚀 SFS Auto-Commit Starting..."
+
+# Check if we're in a git repo
+if [ ! -d .git ]; then
+  echo "❌ Not in a git repository"
+  exit 1
+fi
+
+# Stage all changes
+git add -A
+echo "✅ Staged all files"
+
+# Generate commit message based on changed files
+CHANGED_FILES=$(git diff --cached --name-only | head -5 | tr '\n' ', ' | sed 's/,$//')
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M')
+
+if [ -z "$CHANGED_FILES" ]; then
+  echo "ℹ️  No changes to commit"
+  exit 0
+fi
+
+# Create smart commit message
+COMMIT_MSG="feat: Updated $CHANGED_FILES - $TIMESTAMP"
+
+# Commit
+git commit -m "$COMMIT_MSG"
+echo "✅ Committed: $COMMIT_MSG"
+
+# Pull latest (rebase to avoid merge commits)
+echo "⬇️  Pulling latest changes..."
+git pull --rebase origin $(git branch --show-current) || {
+  echo "⚠️  Pull had conflicts, attempting to resolve..."
+  git rebase --abort 2>/dev/null || true
+  git pull origin $(git branch --show-current)
+}
+
+# Push
+echo "⬆️  Pushing to GitHub..."
+git push origin $(git branch --show-current)
+
+echo "🎉 Done! All changes synced to GitHub"
+EOFSCRIPT
+
+chmod +x ~/sfs-auto-commit.sh
+echo "✅ [1] Auto-commit script created"
+
+# [2] Create quick alias
+cat >> ~/.bashrc << 'EOFALIAS'
+
+# SFS Quick Commit - just type "sfs" to commit and push everything
+alias sfs='~/sfs-auto-commit.sh'
+alias sfs-sync='cd ~/workspace && ~/sfs-auto-commit.sh'
+EOFALIAS
+
+source ~/.bashrc 2>/dev/null || true
+echo "✅ [2] Aliases added"
+
+# [3] Create .replit workflow button
+cat > .replit << 'EOFREPLIT'
+run = "npm run dev"
+
+[deployment]
+run = ["sh", "-c", "npm run dev"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[workflows]
+[[workflows.steps]]
+name = "🚀 Commit & Push All Changes"
+command = "bash ~/sfs-auto-commit.sh"
+EOFREPLIT
+
+echo "✅ [3] Replit workflow button added"
+
+# [4] Run it now to commit current changes
+cd ~/workspace
+echo ""
+echo "📦 Committing your current changes..."
+bash ~/sfs-auto-commit.sh
+
+echo ""
+echo "🎉 WORKFLOW SETUP COMPLETE!"
+echo ""
+echo "Usage (3 ways):"
+echo "  1. Type: sfs                    (from anywhere)"
+echo "  2. Type: sfs-sync               (commits workspace)"
+echo "  3. Click workflow button in Replit UI"
+echo ""
+echo "What it does:"
+echo "  ✅ Stages all changes (git add -A)"
+echo "  ✅ Creates smart commit message with files + timestamp"
+echo "  ✅ Commits changes"
+echo "  ✅ Pulls latest from GitHub"
+echo "  ✅ Pushes to GitHub"
+echo ""

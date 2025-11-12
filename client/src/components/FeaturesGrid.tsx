@@ -1,4 +1,3 @@
-import { Card } from "@/components/ui/card";
 import { Sparkles, Calendar, BarChart3, Users, CalendarDays, Lightbulb } from "lucide-react";
 
 const features = [
@@ -36,33 +35,40 @@ const features = [
 
 export default function FeaturesGrid() {
   return (
-    <section id="features" className="py-16 md:py-24 lg:py-32" data-testid="section-features">
-      <div className="max-w-7xl mx-auto px-4 md:px-8">
+    <section id="features" className="py-24 bg-sfs-black relative overflow-hidden">
+      {/* Circuit background faded */}
+      <div className="absolute inset-0 circuit-bg opacity-30" />
+      
+      <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-features-heading">
-            Everything You Need to Succeed
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            Everything You Need to Dominate Social
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto" data-testid="text-features-subheading">
-            Powerful tools designed to streamline your social media workflow
+          <p className="text-xl text-sfs-beige/70">
+            Powerful features designed for modern marketers
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {features.map((feature, index) => (
-            <Card 
-              key={index} 
-              className="p-8 hover-elevate active-elevate-2 transition-all" 
-              data-testid={`card-feature-${index}`}
-            >
-              <feature.icon className="w-12 h-12 text-primary mb-4" data-testid={`icon-feature-${index}`} />
-              <h3 className="text-xl font-semibold mb-2" data-testid={`text-feature-title-${index}`}>
-                {feature.title}
-              </h3>
-              <p className="text-muted-foreground" data-testid={`text-feature-description-${index}`}>
-                {feature.description}
-              </p>
-            </Card>
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {features.map((feature, index) => {
+            const Icon = feature.icon;
+            return (
+              <div
+                key={index}
+                className="glass-card p-8 group hover:scale-[1.02] transition-transform duration-300"
+              >
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-sfs-gold to-sfs-gold-hover flex items-center justify-center mb-6 group-hover:shadow-[0_0_25px_rgba(255,215,0,0.5)] transition-shadow">
+                  <Icon className="w-7 h-7 text-sfs-black" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-3">
+                  {feature.title}
+                </h3>
+                <p className="text-sfs-beige/70 leading-relaxed">
+                  {feature.description}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
