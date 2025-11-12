@@ -41,6 +41,8 @@ function Router() {
       {/* Authentication Routes */}
       <Route path="/auth/login" component={Login} />
       <Route path="/auth/register" component={Register} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
 
       {/* Dashboard Routes */}
       <Route path="/dashboard" component={Dashboard} />
