@@ -58,8 +58,14 @@ The application uses a custom "SFS Design System" with:
 
 **API Structure:**
 - RESTful API endpoints under `/api` prefix
-- Authentication endpoints: `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/user`
-- AI content generation endpoints: `/api/ai/generate`, `/api/ai/optimize`, `/api/ai/hashtags`, `/api/ai/repurpose`
+- **Authentication**: `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`
+- **Team Management**: `/api/team`, `/api/team/members` (GET/POST/PATCH/DELETE)
+- **Social Accounts**: `/api/social-accounts` (GET/POST/PATCH/DELETE)
+- **User Settings**: `/api/settings/preferences`, `/api/settings/profile`
+- **AI Generation**: `/api/ai/generate`, `/api/ai/optimize`, `/api/ai/hashtags`, `/api/ai/repurpose`
+- **Posts**: `/api/posts` (GET/POST/PATCH/DELETE with scheduling)
+- **Templates**: `/api/templates` (GET/POST/PATCH/DELETE)
+- **Analytics**: `/api/analytics` (aggregated metrics)
 - Session-based authentication with in-memory session store (MemoryStore)
 - Middleware for request logging and authentication guards
 
@@ -80,19 +86,25 @@ The application uses a custom "SFS Design System" with:
 
 **Core Tables:**
 1. **users**: User accounts with subscription tiers and SFS level (gamification)
-2. **socialAccounts**: Connected social media platform accounts with OAuth tokens
-3. **posts**: Content posts with scheduling, AI metadata, and platform targeting
-4. **analytics**: Performance metrics for posts
-5. **contentTemplates**: Reusable content templates
-6. **hashtags**: Hashtag research and performance tracking
-7. **schedules**: Queue system for automated posting
+2. **teams**: Workspace entity for team collaboration (each user gets default workspace on registration)
+3. **teamMembers**: Team membership with roles (owner, admin, editor, viewer) and UNIQUE(teamId, userId) constraint
+4. **userPreferences**: User settings (theme, timezone, notification preferences)
+5. **socialAccounts**: Connected social media platform accounts (accountName, accountId, OAuth tokens)
+6. **posts**: Content posts with scheduling, AI metadata, and platform targeting
+7. **analytics**: Performance metrics for posts
+8. **contentTemplates**: Reusable content templates
+9. **hashtags**: Hashtag research and performance tracking
+10. **schedules**: Queue system for automated posting
 
 **Key Relationships:**
+- Users have one default team (created on registration)
+- Teams have many members via teamMembers junction table
 - Users have many social accounts (one-to-many)
+- Users have one set of preferences (one-to-one)
 - Users have many posts (one-to-many)
 - Posts reference multiple platforms via JSONB array
 - Analytics tied to individual posts
-- Cascade deletes on user removal
+- Cascade deletes on user removal (teams, members, accounts, preferences)
 
 **Design Decisions:**
 - UUID primary keys for all tables
