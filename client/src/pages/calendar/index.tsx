@@ -462,11 +462,11 @@ export default function Calendar() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-sfs-gold mb-2 flex items-center gap-2">
               <CalendarIcon className="w-8 h-8 text-primary" />
               Content Calendar
             </h1>
@@ -603,7 +603,7 @@ export default function Calendar() {
 
         {/* Loading State */}
         {isLoading ? (
-          <Card className="glass-card p-12 flex items-center justify-center">
+          <Card className="glass-card p-8 flex items-center justify-center">
             <div className="text-center">
               <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
               <p className="text-muted-foreground">Loading your calendar...</p>
@@ -613,7 +613,7 @@ export default function Calendar() {
           <>
             {/* Calendar View */}
             {viewMode === 'month' && (
-          <Card className="glass-card p-6">
+          <Card className="glass-card p-4">
             <div className="flex items-center justify-between mb-6">
               <Button variant="outline" size="icon" onClick={() => navigateMonth('prev')}>
                 <ChevronLeft className="w-4 h-4" />
@@ -641,7 +641,7 @@ export default function Calendar() {
         )}
 
         {/* Upcoming Posts List */}
-        <Card className="glass-card p-6">
+        <Card className="glass-card p-4">
           <h2 className="text-xl font-semibold mb-4">Upcoming Posts</h2>
           <div className="space-y-3">
             {posts

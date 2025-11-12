@@ -7,11 +7,11 @@ import { FileText, Search, Filter, Plus } from 'lucide-react';
 export default function ContentLibrary() {
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-sfs-gold mb-2 flex items-center gap-2">
               <FileText className="w-8 h-8 text-primary" />
               Content Library
             </h1>
@@ -26,7 +26,7 @@ export default function ContentLibrary() {
         </div>
 
         {/* Search & Filters */}
-        <Card className="glass-card p-6">
+        <Card className="glass-card p-4">
           <div className="flex gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -40,7 +40,7 @@ export default function ContentLibrary() {
         </Card>
 
         {/* Content Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Card key={i} className="glass-card p-4">
               <div className="aspect-video bg-accent/50 rounded-lg mb-3 flex items-center justify-center">

@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
   Home, Sparkles, Calendar, BarChart3, Users, Settings,
-  Zap, Bell, CreditCard, HelpCircle, FileText, Globe
+  Zap, Bell, CreditCard, HelpCircle, FileText, Globe, CheckCircle
 } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 
@@ -39,6 +39,7 @@ const accountsItems = [
 
 const settingsItems = [
   { icon: Users, label: "Team", path: "/team" },
+  { icon: CheckCircle, label: "Approvals", path: "/approvals" },
   { icon: Settings, label: "Settings", path: "/settings" },
   { icon: CreditCard, label: "Billing", path: "/billing" },
   { icon: HelpCircle, label: "Help", path: "/help" },
@@ -52,19 +53,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [location] = useLocation();
 
   return (
-    <SidebarProvider>
-      {/* Circuit Background */}
-      <div className="circuit-bg" />
+    <>
+      {/* Circuit Background - Fixed to viewport */}
+      <div className="fixed inset-0 circuit-bg -z-10" />
 
-      <Sidebar collapsible="none">
-        <SidebarHeader className="p-4 border-b">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-primary" />
-            <div>
-              <h2 className="font-bold text-lg">SFS PowerHouse</h2>
+      <SidebarProvider>
+        <Sidebar collapsible="none" className="bg-sfs-black/80 backdrop-blur-sm border-r border-sfs-gold/20">
+          <SidebarHeader className="p-4 border-b border-sfs-gold/20">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-primary" />
+              <div>
+                <h2 className="font-bold text-lg text-sfs-gold">SFS PowerHouse</h2>
+              </div>
             </div>
-          </div>
-        </SidebarHeader>
+          </SidebarHeader>
 
         <SidebarContent>
           <SidebarGroup>
@@ -141,16 +143,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </SidebarContent>
       </Sidebar>
 
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+      <SidebarInset className="bg-transparent">
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-sfs-gold/20 px-4 bg-sfs-black/60 backdrop-blur-md">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-primary">SFS PowerHouse</h2>
+            <h2 className="text-lg font-semibold text-sfs-gold">SFS PowerHouse</h2>
           </div>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4">
+        <main className="flex flex-1 flex-col gap-3 p-3 md:gap-4 md:p-4">
           {children}
         </main>
       </SidebarInset>
     </SidebarProvider>
+    </>
   );
 }
