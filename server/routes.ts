@@ -1066,12 +1066,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/social-accounts", requireAuth, async (req, res) => {
     try {
       const user = req.user as User;
-      const { platform, username, accessToken, refreshToken, expiresAt, profileData } = req.body;
+      const { platform, accountName, accountId, accessToken, refreshToken, expiresAt, profileData } = req.body;
 
-      if (!platform || !username || !accessToken) {
+      if (!platform || !accountName || !accountId || !accessToken) {
         return res.status(400).json({
           error: "Missing required fields",
-          message: "Platform, username, and accessToken are required"
+          message: "Platform, accountName, accountId, and accessToken are required"
         });
       }
 
@@ -1086,7 +1086,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if account already exists for this platform
       const existingAccounts = await storage.getSocialAccounts(user.id);
       const duplicateAccount = existingAccounts.find(
-        acc => acc.platform === platform && acc.username === username
+        acc => acc.platform === platform && acc.accountId === accountId
       );
       if (duplicateAccount) {
         return res.status(409).json({
@@ -1098,7 +1098,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const account = await storage.createSocialAccount({
         userId: user.id,
         platform,
-        username,
+        accountName,
+        accountId,
         accessToken,
         refreshToken: refreshToken || null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
