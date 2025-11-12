@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Copy, Download, Share2, Wand2, CalendarPlus, Loader2, Save, BookmarkPlus, Trash2 } from 'lucide-react';
+import { Sparkles, Copy, Download, Share2, Wand2, CalendarPlus, Loader2, Save, BookmarkPlus, Trash2, Lightbulb, AlertCircle, TrendingUp, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -37,6 +37,14 @@ type AITemplate = {
   isPublic?: boolean;
 };
 
+type Suggestion = {
+  type: 'timing' | 'hashtag' | 'content' | 'platform' | 'engagement';
+  title: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+  icon?: string;
+};
+
 export default function AIStudio() {
   const [prompt, setPrompt] = useState('');
   const [selectedTone, setSelectedTone] = useState('professional');
@@ -55,6 +63,10 @@ export default function AIStudio() {
   const [templateCategory, setTemplateCategory] = useState('');
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+
+  // Smart suggestions state
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
   const { toast } = useToast();
 
@@ -80,6 +92,41 @@ export default function AIStudio() {
       console.error('Failed to fetch templates:', error);
     } finally {
       setIsLoadingTemplates(false);
+    }
+  };
+
+  const fetchSuggestions = async (content: string) => {
+    if (!content.trim() || selectedPlatforms.length === 0) {
+      setSuggestions([]);
+      return;
+    }
+
+    try {
+      setIsLoadingSuggestions(true);
+      const response = await fetch('/api/suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          content,
+          platforms: selectedPlatforms,
+          scheduledAt: scheduleDate && scheduleTime ? `${scheduleDate}T${scheduleTime}` : null,
+          tone: selectedTone,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch suggestions');
+      }
+
+      const data = await response.json();
+      setSuggestions(data.suggestions || []);
+    } catch (error: any) {
+      console.error('Failed to fetch suggestions:', error);
+    } finally {
+      setIsLoadingSuggestions(false);
     }
   };
 
@@ -145,7 +192,13 @@ export default function AIStudio() {
         throw new Error(data.message || 'Failed to generate content');
       }
 
-      setGeneratedContent(data.content || '');
+      const content = data.content || '';
+      setGeneratedContent(content);
+
+      // Fetch smart suggestions for the generated content
+      if (content) {
+        fetchSuggestions(content);
+      }
 
       toast({
         title: 'Content generated!',
@@ -617,6 +670,72 @@ export default function AIStudio() {
                     </div>
                   ))}
                 </div>
+              </GlassCard>
+            )}
+
+            {/* Smart Suggestions */}
+            {generatedContent && (
+              <GlassCard className="p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Lightbulb className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold text-sfs-gold">Smart Suggestions</h3>
+                </div>
+
+                {isLoadingSuggestions ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    <span className="ml-2 text-sfs-beige/60">Analyzing your content...</span>
+                  </div>
+                ) : suggestions.length > 0 ? (
+                  <div className="space-y-3">
+                    {suggestions.map((suggestion, index) => (
+                      <div
+                        key={index}
+                        className={`p-4 rounded-lg border transition-colors ${
+                          suggestion.priority === 'high'
+                            ? 'border-red-500/30 bg-red-500/5'
+                            : suggestion.priority === 'medium'
+                            ? 'border-yellow-500/30 bg-yellow-500/5'
+                            : 'border-blue-500/30 bg-blue-500/5'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="text-2xl flex-shrink-0">
+                            {suggestion.icon ||
+                              (suggestion.type === 'timing' ? '⏰' :
+                               suggestion.type === 'hashtag' ? '#️⃣' :
+                               suggestion.type === 'engagement' ? '💬' :
+                               suggestion.type === 'platform' ? '📱' :
+                               '💡')}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-sfs-beige">{suggestion.title}</h4>
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${
+                                  suggestion.priority === 'high'
+                                    ? 'border-red-500/50 text-red-400'
+                                    : suggestion.priority === 'medium'
+                                    ? 'border-yellow-500/50 text-yellow-400'
+                                    : 'border-blue-500/50 text-blue-400'
+                                }`}
+                              >
+                                {suggestion.priority}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-sfs-beige/80 whitespace-pre-line">{suggestion.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-sfs-beige/60">
+                    <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>No suggestions at this time. Your content looks great!</p>
+                  </div>
+                )}
               </GlassCard>
             )}
           </div>

@@ -6,6 +6,7 @@ import passport from "passport";
 import { requireAuth } from "./auth";
 import type { User } from "@shared/schema";
 import { publishPost, processScheduledPosts, validatePostForPlatform } from "./publisher";
+import { generateSuggestions, getPlatformTips } from "./suggestions";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication Routes
@@ -590,6 +591,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         error: "Validation failed",
         message: error.message || "An error occurred during validation"
+      });
+    }
+  });
+
+  // Smart Suggestions API
+  app.post("/api/suggestions", requireAuth, async (req, res) => {
+    try {
+      const { content, platforms, scheduledAt, tone } = req.body;
+
+      if (!content || !platforms || !Array.isArray(platforms)) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          message: "Content and platforms array are required"
+        });
+      }
+
+      const suggestions = generateSuggestions(
+        content,
+        platforms,
+        scheduledAt ? new Date(scheduledAt) : null,
+        tone
+      );
+
+      res.json({ suggestions });
+    } catch (error: any) {
+      console.error("Error generating suggestions:", error);
+      res.status(500).json({
+        error: "Failed to generate suggestions",
+        message: error.message || "An error occurred while generating suggestions"
+      });
+    }
+  });
+
+  // Get platform-specific tips
+  app.get("/api/suggestions/platform/:platform", requireAuth, async (req, res) => {
+    try {
+      const { platform } = req.params;
+      const tips = getPlatformTips(platform);
+
+      res.json({ platform, tips });
+    } catch (error: any) {
+      console.error("Error fetching platform tips:", error);
+      res.status(500).json({
+        error: "Failed to fetch platform tips",
+        message: error.message || "An error occurred"
       });
     }
   });
