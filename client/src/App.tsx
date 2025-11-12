@@ -17,6 +17,7 @@ import ContentLibrary from "@/pages/content-library/index";
 
 // Content Pages
 import PostsList from "@/pages/posts/index";
+import PostDetail from "@/pages/posts/detail";
 import CreatePost from "@/pages/posts/create";
 import ScheduledPosts from "@/pages/posts/scheduled";
 import Drafts from "@/pages/posts/drafts";
@@ -69,6 +70,7 @@ function Router() {
       <Route path="/posts/create" component={CreatePost} />
       <Route path="/posts/scheduled" component={ScheduledPosts} />
       <Route path="/posts/drafts" component={Drafts} />
+      <Route path="/posts/:id" component={PostDetail} />
       <Route path="/templates" component={Templates} />
 
       {/* Scheduler Route */}
